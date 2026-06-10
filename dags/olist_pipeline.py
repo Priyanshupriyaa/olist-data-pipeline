@@ -44,27 +44,27 @@ def run_data_quality_checks():
     cur = conn.cursor()
 
     checks = [
-    (
-        "fct_orders row count > 0",
-        "SELECT COUNT(*) FROM staging_marts.fct_orders",
-        lambda x: x > 0,
-    ),
-    (
-        "No NULL order_ids in fct_orders",
-        "SELECT COUNT(*) FROM staging_marts.fct_orders WHERE order_id IS NULL",
-        lambda x: x == 0,
-    ),
-    (
-        "dim_customers row count > 0",
-        "SELECT COUNT(*) FROM staging_marts.dim_customers",
-        lambda x: x > 0,
-    ),
-    (
-        "Revenue > 0",
-        "SELECT SUM(total_payment_value) FROM staging_marts.fct_orders",
-        lambda x: x > 0,
-    ),
-]
+        (
+            "fct_orders row count > 0",
+            "SELECT COUNT(*) FROM staging_marts.fct_orders",
+            lambda x: x > 0,
+        ),
+        (
+            "No NULL order_ids in fct_orders",
+            "SELECT COUNT(*) FROM staging_marts.fct_orders WHERE order_id IS NULL",
+            lambda x: x == 0,
+        ),
+        (
+            "dim_customers row count > 0",
+            "SELECT COUNT(*) FROM staging_marts.dim_customers",
+            lambda x: x > 0,
+        ),
+        (
+            "Revenue > 0",
+            "SELECT SUM(total_payment_value) FROM staging_marts.fct_orders",
+            lambda x: x > 0,
+        ),
+    ]
 
     failed = []
     for check_name, query, validator in checks:
