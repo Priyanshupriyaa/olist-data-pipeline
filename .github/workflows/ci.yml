@@ -37,7 +37,9 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install dbt-postgres==1.7.0 sqlfluff flake8
+            pip install dbt-postgres==1.7.0
+            pip install protobuf==4.25.3
+            pip install sqlfluff flake8
 
       - name: Lint Python files
         run: flake8 ingestion/ dags/ --max-line-length=120
