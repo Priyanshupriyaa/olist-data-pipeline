@@ -1,10 +1,10 @@
-# 🛒 Olist E-Commerce Data Pipeline
+# Olist E-Commerce Data Pipeline
 
 An end-to-end Data Engineering project built using the Brazilian Olist E-Commerce dataset. This project demonstrates modern data engineering practices including data ingestion, orchestration, transformation, data quality validation, warehousing, containerization, CI/CD, and business intelligence dashboards.
 
 ---
 
-# 📌 Project Overview
+# Project Overview
 
 The pipeline ingests raw Olist CSV datasets into PostgreSQL, transforms them using dbt into an analytics-ready warehouse, orchestrates workflows with Apache Airflow, and visualizes business insights through Metabase dashboards.
 
