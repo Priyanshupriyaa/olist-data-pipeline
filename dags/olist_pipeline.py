@@ -4,7 +4,7 @@ Schedule: Daily at 6 AM UTC
 Flow: Raw Ingestion → dbt Staging → dbt Marts → Data Quality Checks
 """
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
@@ -44,18 +44,27 @@ def run_data_quality_checks():
     cur = conn.cursor()
 
     checks = [
-    ("fct_orders row count > 0",
-     "SELECT COUNT(*) FROM staging_marts.fct_orders", lambda x: x > 0),
-
-    ("No NULL order_ids in fct_orders",
-     "SELECT COUNT(*) FROM staging_marts.fct_orders WHERE order_id IS NULL", lambda x: x == 0),
-
-    ("dim_customers row count > 0",
-     "SELECT COUNT(*) FROM staging_marts.dim_customers", lambda x: x > 0),
-
-    ("Revenue > 0",
-     "SELECT SUM(total_payment_value) FROM staging_marts.fct_orders", lambda x: x > 0),
-    ]
+    (
+        "fct_orders row count > 0",
+        "SELECT COUNT(*) FROM staging_marts.fct_orders",
+        lambda x: x > 0,
+    ),
+    (
+        "No NULL order_ids in fct_orders",
+        "SELECT COUNT(*) FROM staging_marts.fct_orders WHERE order_id IS NULL",
+        lambda x: x == 0,
+    ),
+    (
+        "dim_customers row count > 0",
+        "SELECT COUNT(*) FROM staging_marts.dim_customers",
+        lambda x: x > 0,
+    ),
+    (
+        "Revenue > 0",
+        "SELECT SUM(total_payment_value) FROM staging_marts.fct_orders",
+        lambda x: x > 0,
+    ),
+]
 
     failed = []
     for check_name, query, validator in checks:
