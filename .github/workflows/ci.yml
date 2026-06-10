@@ -1,0 +1,68 @@
+name: Olist Data Pipeline CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    name: Lint & dbt Parse Check
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: airflow
+          POSTGRES_PASSWORD: airflow
+          POSTGRES_DB: olist_warehouse
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install dbt-postgres==1.7.0 sqlfluff flake8
+
+      - name: Lint Python files
+        run: flake8 ingestion/ dags/ --max-line-length=120
+
+      - name: dbt parse (syntax check)
+        working-directory: ./dbt
+        env:
+          DBT_HOST: localhost
+          DBT_USER: airflow
+          DBT_PASSWORD: airflow
+        run: dbt parse --profiles-dir .
+
+      - name: SQL lint with sqlfluff
+        working-directory: ./dbt
+        run: sqlfluff lint models/ --dialect postgres --templater dbt
+        continue-on-error: true  # warn only, don't block
+
+  docker-build:
+    name: Docker Compose Build Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate docker-compose syntax
+        run: docker compose config
+
+      - name: Build images
+        run: docker compose build --no-cache airflow-webserver
