@@ -1,6 +1,7 @@
 """
 Olist Raw Ingestion
 Loads all Olist CSV files into PostgreSQL raw schema (olist_raw database)
+Supports incremental loading - only inserts new rows on subsequent runs
 """
 
 import os
@@ -33,6 +34,19 @@ OLIST_FILES = {
     "product_category_name_translation.csv": "raw_product_category_translation",
 }
 
+# Primary keys for each table (for deduplication)
+PRIMARY_KEYS = {
+    "raw_orders": "order_id",
+    "raw_order_items": "order_id",
+    "raw_order_payments": "order_id",
+    "raw_order_reviews": "review_id",
+    "raw_customers": "customer_id",
+    "raw_sellers": "seller_id",
+    "raw_products": "product_id",
+    "raw_geolocation": None,  # no unique key
+    "raw_product_category_translation": "product_category_name",
+}
+
 
 def get_engine():
     return create_engine(RAW_DB_CONN)
@@ -54,7 +68,7 @@ def create_ingestion_log(engine):
 
 
 def ingest_file(engine, filepath: str, table_name: str) -> dict:
-    """Load a single CSV into PostgreSQL raw table"""
+    """Load a single CSV into PostgreSQL raw table (incremental)"""
     result = {"table": table_name, "rows": 0, "status": "success", "error": None}
     try:
         logger.info(f"Loading {filepath} → {table_name}")
@@ -64,16 +78,42 @@ def ingest_file(engine, filepath: str, table_name: str) -> dict:
         df["_ingested_at"] = datetime.utcnow()
         df["_source_file"] = os.path.basename(filepath)
 
-        df.to_sql(
-            table_name,
-            engine,
-            if_exists="replace",
-            index=False,
-            chunksize=5000,
-            method="multi"
-        )
-        result["rows"] = len(df)
-        logger.info(f"✓ {table_name}: {len(df)} rows loaded")
+        pk = PRIMARY_KEYS.get(table_name)
+
+        # Check if table already exists
+        with engine.connect() as conn:
+            table_exists = engine.dialect.has_table(conn, table_name)
+
+        if not table_exists or pk is None:
+            # First run or no PK — full load
+            df.to_sql(
+                table_name, engine,
+                if_exists="replace",
+                index=False,
+                chunksize=5000,
+                method="multi"
+            )
+            new_rows = len(df)
+        else:
+            # Incremental — only insert rows not already in DB
+            existing_ids = pd.read_sql(
+                f"SELECT {pk} FROM {table_name}", engine
+            )[pk].tolist()
+
+            df_new = df[~df[pk].isin(existing_ids)]
+            if len(df_new) > 0:
+                df_new.to_sql(
+                    table_name, engine,
+                    if_exists="append",
+                    index=False,
+                    chunksize=5000,
+                    method="multi"
+                )
+            new_rows = len(df_new)
+            logger.info(f"  → {len(df)} total rows, {new_rows} new rows inserted")
+
+        result["rows"] = new_rows
+        logger.info(f"✓ {table_name}: {new_rows} rows loaded")
 
     except Exception as e:
         result["status"] = "failed"
